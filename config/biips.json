@@ -1,0 +1,15 @@
+{
+  "name": "biips",
+  "dir": "/data/data/com.termux/files/home/biips",
+  "files": [
+    "README.md",
+    "app",
+    "app.json",
+    "assets",
+    "components",
+    "constants",
+    "hooks",
+    "package.json",
+    "scripts"
+  ]
+}

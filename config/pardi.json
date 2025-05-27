@@ -1,0 +1,12 @@
+{
+  "name": "pardi",
+  "dir": "/data/data/com.termux/files/home/pardi",
+  "files": [
+    "README.md",
+    "next.config.js",
+    "package.json",
+    "pages",
+    "public",
+    "styles"
+  ]
+}
