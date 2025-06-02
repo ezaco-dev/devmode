@@ -7,41 +7,70 @@ ACODE_DIR="/sdcard/acode/"
 
 mkdir -p "$CONFIG_DIR"
 
+# Daftar file/folder yang difilter saat "set"
+FILTER_LIST=(
+  "node_modules"
+  "package-lock.json"
+  "yarn.lock"
+  ".bin"
+  "vendor"
+  "composer.lock"
+  "__pycache__"
+  "*.egg-info"
+  "*.dist-info"
+  "venv"
+  ".venv"
+  "vendor/bundle"
+  ".git"
+  ".vscode"
+  "dist"
+  "build"
+  "out"
+  "*.log"
+)
+
 set_new_workspace() {
     echo "Scanning current directory..."
-    items=(*)
+    items=()
+
+    # Filter item: abaikan symlink dan yang ada di FILTER_LIST
+    for entry in *; do
+        [ -L "$entry" ] && continue
+        skip=false
+        for filter in "${FILTER_LIST[@]}"; do
+            [[ "$entry" == $filter ]] && skip=true && break
+        done
+        $skip || items+=("$entry")
+    done
 
     echo "Pilih file/folder yang ingin dimasukkan ke workspace:"
-    selected=()
-
     for i in "${!items[@]}"; do
         echo "$((i+1)). ${items[$i]}"
     done
 
-    echo "Ketik nomor yang ingin disertakan, pisahkan dengan spasi (mis: 1 3 5):"
+    echo "Ketik nomor yang ingin disertakan (mis: 1 3 5):"
     read -a choices
 
+    selected=()
     for i in "${choices[@]}"; do
         index=$((i-1))
         [ -n "${items[$index]}" ] && selected+=("${items[$index]}")
     done
 
-    echo "Name for workspace..."
+    echo "Name for workspace:"
     read workspace_name
-
     ws_path=$(pwd)
 
-    echo "Pilih editor default untuk workspace ini:"
+    echo "Pilih editor default:"
     echo "1) SPCK"
     echo "2) SPCK Node.js"
-    echo "3) Acode (Di sarankan untuk android 11 ke atas)"
+    echo "3) Acode (Android 11+)"
     read editor_choice
-
     case "$editor_choice" in
         1) editor_dir="$SPCK_DIR" ;;
         2) editor_dir="$NODE_DIR" ;;
         3) editor_dir="$ACODE_DIR" ;;
-        *) echo "Pilihan tidak valid. Default ke SPCK."; editor_dir="$SPCK_DIR" ;;
+        *) echo "Pilihan tidak valid. Default SPCK."; editor_dir="$SPCK_DIR" ;;
     esac
 
     mkdir -p "$editor_dir/$workspace_name"
@@ -82,12 +111,10 @@ run_workspace() {
     done
 
     filter_file="$HOME/.devmode_filter"
-    echo "# protect generated and config files" > "$filter_file"
-    echo "- .next/" >> "$filter_file"
-    echo "- node_modules/" >> "$filter_file"
-    echo "- .git/" >> "$filter_file"
-    echo "- .vscode/" >> "$filter_file"
-    echo "- *.log" >> "$filter_file"
+    echo "# protect generated/config files" > "$filter_file"
+    for f in "${FILTER_LIST[@]}"; do
+        echo "- $f" >> "$filter_file"
+    done
     echo "+ *" >> "$filter_file"
 
     cleanup() {
@@ -114,7 +141,7 @@ delete_workspace() {
         echo "$((i+1)). $fname"
     done
 
-    echo "Pilih workspace yang ingin dihapus (contoh: 1 2 4):"
+    echo "Pilih workspace yang ingin dihapus (mis: 1 2 4):"
     read -a del_choice
 
     for idx in "${del_choice[@]}"; do
@@ -133,13 +160,13 @@ delete_workspace() {
 }
 
 case "$1" in
-    set-new-workspace) set_new_workspace ;;
-    set) set_new_workspace;;
+    set-new-workspace|set) set_new_workspace ;;
     run) run_workspace ;;
-    remove-workspace) delete_workspace ;;
-    rm) delete_workspace ;;
-    *) echo "Gunakan command devmode 
-    {set-new-workspace | run | delete-workspace}
-    MENJALANKAN run...
-    Pilih Workspace..." & run_workspace;;
+    remove-workspace|rm|delete-workspace) delete_workspace ;;
+    *)
+        echo "Gunakan command devmode:
+  {set-new-workspace | run | delete-workspace}
+MENJALANKAN run..."
+        run_workspace
+        ;;
 esac
