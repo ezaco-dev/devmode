@@ -56,7 +56,6 @@ export DEVMODE_ALIAS="alias devmode='~/devmode/devmode.sh'"
 ```bash
 devmode set-new-workspace 
 ```
-#### or
 ```bash
 devmode set
 ```
@@ -65,7 +64,6 @@ devmode set
 ```bash
 devmode remove-workspace
 ```
-#### or
 ```bash
 devmode rm
 ```
@@ -74,7 +72,6 @@ devmode rm
 ```bash
 devmode run
 ```
-#### or
 ```bash
 devmode
 ```
