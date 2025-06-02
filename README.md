@@ -24,7 +24,7 @@
 
 ### Android application required 
 - #### Text editor (<a href="https://play.google.com/store/apps/details?id=io.spck">Spck Editor</a>, <a href="https://play.google.com/store/apps/details?id=io.spck.editor.node">Spck Editor for Nodejs</a>, <a href="https://play.google.com/store/apps/details?id=com.foxdebug.acodefree">Acode</a>)
-- #### <a href="">Termux</a>,
+- #### Command Line <a href="https://f-droid.org/id/packages/com.termux/">Termux</a>
 
 ### 1. Setup Termux 
 ```bash
