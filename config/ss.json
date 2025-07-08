@@ -1,0 +1,15 @@
+{
+  "name": "ss",
+  "dir": "/data/data/com.termux/files/home/ss",
+  "editor": "/sdcard/android/data/io.spck/files/",
+  "files": [
+    "Procfile",
+    "config.json",
+    "package.json",
+    "server.js",
+    "start.sh",
+    "uploads",
+    "web.js",
+    "world_template"
+  ]
+}
