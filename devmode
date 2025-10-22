@@ -1,172 +1,283 @@
 #!/bin/bash
+# Devmode TUI (Esa Lintang 2025)
+# Versi: Runtime Sync (copy hanya saat run, auto cleanup di stop)
 
 CONFIG_DIR="$HOME/devmode/config"
-SPCK_DIR="/sdcard/android/data/io.spck/files/"
-NODE_DIR="/sdcard/android/data/io.spck.editor.node/files/"
-ACODE_DIR="/sdcard/acode/"
-
+SPCK_DIR="/sdcard/android/data/io.spck/files"
+SPCK_NODE_DIR="/sdcard/android/data/io.spck.editor.node/files"
+ACODE_DIR="/sdcard/acode"
 mkdir -p "$CONFIG_DIR"
 
-# Daftar file/folder yang difilter saat "set"
+# Warna
+red='\e[31m'; green='\e[32m'; yellow='\e[33m'; blue='\e[34m'; white='\e[37m'; reset='\e[0m'
+
+# ==========================================================
+# Fungsi navigasi (multi select)
+# ==========================================================
+select_multiple() {
+    local title="$1"; shift
+    local -n items=$1
+    local -n selected=$2
+    local index=0
+    local total=${#items[@]}
+
+    draw() {
+        clear
+        echo -e "\n${blue}${title}${reset}\n"
+        echo -e "${white}Gunakan ↑ ↓ untuk navigasi, Spasi untuk pilih, Enter untuk lanjut.${reset}\n"
+        for i in "${!items[@]}"; do
+            if [[ ${selected[$i]} == true ]]; then
+                mark="[${green}x${reset}]"
+            else
+                mark="[ ]"
+            fi
+            if [[ $i -eq $index ]]; then
+                echo -e " > ${mark} ${yellow}${items[$i]}${reset}"
+            else
+                echo -e "   ${mark} ${white}${items[$i]}${reset}"
+            fi
+        done
+    }
+
+    draw
+    while true; do
+        IFS= read -rsn1 key
+        if [[ $key == $'\x1b' ]]; then
+            read -rsn2 key
+            case "$key" in
+                "[A") ((index--)); ((index < 0)) && index=$((total - 1)); draw ;;
+                "[B") ((index++)); ((index >= total)) && index=0; draw ;;
+            esac
+        elif [[ $key == " " ]]; then
+            selected[$index]=$([[ ${selected[$index]} == true ]] && echo false || echo true)
+            draw
+        elif [[ $key == "" ]]; then
+            break
+        fi
+    done
+}
+
+# ==========================================================
+# Fungsi navigasi (single select)
+# ==========================================================
+select_one() {
+    local title="$1"; shift
+    local -n items=$1
+    local -n chosen=$2
+    local index=0
+    local total=${#items[@]}
+
+    draw() {
+        clear
+        echo -e "\n${blue}${title}${reset}\n"
+        echo -e "${white}Gunakan ↑ ↓ untuk navigasi, Enter untuk pilih.${reset}\n"
+        for i in "${!items[@]}"; do
+            if [[ $i -eq $index ]]; then
+                echo -e " > ${yellow}${items[$i]}${reset}"
+            else
+                echo -e "   ${white}${items[$i]}${reset}"
+            fi
+        done
+    }
+
+    draw
+    while true; do
+        IFS= read -rsn1 key
+        if [[ $key == $'\x1b' ]]; then
+            read -rsn2 key
+            case "$key" in
+                "[A") ((index--)); ((index < 0)) && index=$((total - 1)); draw ;;
+                "[B") ((index++)); ((index >= total)) && index=0; draw ;;
+            esac
+        elif [[ $key == "" ]]; then
+            chosen="${items[$index]}"
+            break
+        fi
+    done
+}
+
+# ==========================================================
+# Filter list (skip folder besar)
+# ==========================================================
 FILTER_LIST=(
   "node_modules"
-  "package-lock.json"
-  "yarn.lock"
-  ".bin"
-  "vendor"
-  "composer.lock"
-  "__pycache__"
-  "*.egg-info"
-  "*.dist-info"
-  "venv"
-  ".venv"
-  "vendor/bundle"
   ".git"
-  ".vscode"
   "dist"
   "build"
   "out"
+  "vendor"
+  ".vscode"
+  "__pycache__"
+  "*.lock"
   "*.log"
+  "*.egg-info"
+  "*.dist-info"
 )
 
-set_new_workspace() {
-    echo "Scanning current directory..."
-    items=()
-
-    # Filter item: abaikan symlink dan yang ada di FILTER_LIST
-    for entry in *; do
-        [ -L "$entry" ] && continue
-        skip=false
-        for filter in "${FILTER_LIST[@]}"; do
-            [[ "$entry" == $filter ]] && skip=true && break
-        done
-        $skip || items+=("$entry")
+create_filter_file() {
+    local f="$HOME/.devmode_filter"
+    echo "# rsync filter" > "$f"
+    for pattern in "${FILTER_LIST[@]}"; do
+        echo "- $pattern" >> "$f"
+        echo "- $pattern/**" >> "$f"
     done
-
-    echo "Pilih file/folder yang ingin dimasukkan ke workspace:"
-    for i in "${!items[@]}"; do
-        echo "$((i+1)). ${items[$i]}"
-    done
-
-    echo "Ketik nomor yang ingin disertakan (mis: 1 3 5):"
-    read -a choices
-
-    selected=()
-    for i in "${choices[@]}"; do
-        index=$((i-1))
-        [ -n "${items[$index]}" ] && selected+=("${items[$index]}")
-    done
-
-    echo "Name for workspace:"
-    read workspace_name
-    ws_path=$(pwd)
-
-    echo "Pilih editor default:"
-    echo "1) SPCK"
-    echo "2) SPCK Node.js"
-    echo "3) Acode (Android 11+)"
-    read editor_choice
-    case "$editor_choice" in
-        1) editor_dir="$SPCK_DIR" ;;
-        2) editor_dir="$NODE_DIR" ;;
-        3) editor_dir="$ACODE_DIR" ;;
-        *) echo "Pilihan tidak valid. Default SPCK."; editor_dir="$SPCK_DIR" ;;
-    esac
-
-    mkdir -p "$editor_dir/$workspace_name"
-
-    for item in "${selected[@]}"; do
-        cp -r "$item" "$editor_dir/$workspace_name/" 2>/dev/null
-    done
-
-    json_content=$(jq -n \
-        --arg name "$workspace_name" \
-        --arg dir "$ws_path" \
-        --arg editor "$editor_dir" \
-        --argjson files "$(printf '%s\n' "${selected[@]}" | jq -R . | jq -s .)" \
-        '{name: $name, dir: $dir, editor: $editor, files: $files}')
-
-    echo "$json_content" > "$CONFIG_DIR/$workspace_name.json"
-    echo "Workspace '$workspace_name' saved."
+    echo "+ *" >> "$f"
+    echo "$f"
 }
 
+# ==========================================================
+# Membuat workspace (tanpa copy file)
+# ==========================================================
+set_workspace() {
+    echo -e "\n=========================================================="
+    echo -e "🛠️ ${yellow}Membuat Workspace Baru${reset}"
+    echo -e "==========================================================\n"
+
+    echo -e "${blue}🔍 Scanning direktori saat ini...${reset}"
+    files=($(ls))
+    declare -a selected_flags
+
+    select_multiple "📦 Pilih file/folder yang ingin disertakan:" files selected_flags
+
+    chosen_items=()
+    for i in "${!files[@]}"; do
+        if [[ ${selected_flags[$i]} == true ]]; then
+            chosen_items+=("${files[$i]}")
+        fi
+    done
+
+    if [ ${#chosen_items[@]} -eq 0 ]; then
+        echo "⚠️ Tidak ada file yang dipilih."
+        return
+    fi
+
+    read -p "📝 Masukkan nama workspace: " name
+
+    editors=("SPCK" "SPCK Node" "Acode")
+    select_one "🎨 Pilih editor untuk workspace ini:" editors chosen_editor
+
+    case "$chosen_editor" in
+        "SPCK") editor_dir="$SPCK_DIR" ;;
+        "SPCK Node") editor_dir="$SPCK_NODE_DIR" ;;
+        "Acode") editor_dir="$ACODE_DIR" ;;
+    esac
+
+    cat > "$CONFIG_DIR/$name.json" <<EOF
+{
+  "path": "$(pwd)",
+  "editor": "$chosen_editor",
+  "editor_dir": "$editor_dir",
+  "name": "$name",
+  "files": [$(printf '"%s",' "${chosen_items[@]}" | sed 's/,$//')]
+}
+EOF
+
+    echo -e "${green}✅ Workspace '$name' tersimpan. Jalankan dengan:${reset}"
+    echo -e "   ${blue}devmode run${reset}"
+}
+
+# ==========================================================
+# Menjalankan workspace (copy saat run, auto cleanup)
+# ==========================================================
 run_workspace() {
-    echo "Available workspaces:"
+    echo -e "\n=========================================================="
+    echo -e "🚀 ${yellow}Menjalankan Workspace${reset}"
+    echo -e "==========================================================\n"
+
     files=("$CONFIG_DIR"/*.json)
-    select ws_file in "${files[@]}"; do
-        [ -n "$ws_file" ] && break
+    [ ${#files[@]} -eq 0 ] && echo "⚠️ Belum ada workspace tersimpan." && return
+
+    options=()
+    for f in "${files[@]}"; do
+        options+=("$(basename "$f" .json)")
     done
 
-    name=$(jq -r .name "$ws_file")
-    dir=$(jq -r .dir "$ws_file")
-    files=$(jq -r .files[] "$ws_file")
-    editor_dir=$(jq -r .editor "$ws_file")
+    select_one "📂 Pilih workspace yang ingin dijalankan:" options chosen
 
-    mkdir -p "$editor_dir/$name"
-    cd "$editor_dir/$name" || exit
+    CONFIG_PATH="$CONFIG_DIR/$chosen.json"
+    workspace=$(jq -r '.path' "$CONFIG_PATH")
+    editor_dir=$(jq -r '.editor_dir' "$CONFIG_PATH")
+    name=$(jq -r '.name' "$CONFIG_PATH")
+    target_dir="$editor_dir/$name"
 
-    echo "Menyalin file ke editor..."
-    for file in $files; do
-        cp -r "$dir/$file" "$editor_dir/$name/" 2>/dev/null
+    echo -e "${green}📂 Sinkronisasi aktif: ${yellow}$chosen${reset}"
+    echo "Project : $workspace"
+    echo "Editor  : $target_dir"
+    sleep 1
+
+    filter_file=$(create_filter_file)
+    mkdir -p "$target_dir"
+
+    echo -e "\n${blue}📁 Menyalin file awal ke editor...${reset}"
+    files_list=$(jq -r '.files[]' "$CONFIG_PATH")
+    for item in $files_list; do
+        if [ -e "$workspace/$item" ]; then
+            rsync -rt --checksum --filter="merge $filter_file" "$workspace/$item" "$target_dir/"
+        fi
     done
-
-    filter_file="$HOME/.devmode_filter"
-    echo "# protect generated/config files" > "$filter_file"
-    for f in "${FILTER_LIST[@]}"; do
-        echo "- $f" >> "$filter_file"
-    done
-    echo "+ *" >> "$filter_file"
+    echo -e "${green}✅ Copy selesai. Sinkronisasi berjalan setiap 1 detik...${reset}"
 
     cleanup() {
-        echo -e "\nCleaning up copied files..."
-        for file in $files; do
-            rm -rf "$editor_dir/$name/$file"
-        done
-        exit
+        echo -e "\n🛑 Menutup sinkronisasi dan menghapus folder editor..."
+        rm -rf "$target_dir"
+        rm -f "$filter_file"
+        echo -e "${yellow}✅ Workspace '$chosen' ditutup.${reset}"
+        exit 0
     }
     trap cleanup INT
 
-    echo "Running sync loop (1s)... Ctrl+C to stop"
     while true; do
-        rsync -a --delete --filter="merge $filter_file" "$editor_dir/$name/" "$dir/" 2>/dev/null
+        rsync -rt --checksum --filter="merge $filter_file" "$target_dir/" "$workspace/" 2>/dev/null
         sleep 1
     done
 }
 
-delete_workspace() {
-    echo "Daftar workspace:"
+# ==========================================================
+# Menghapus workspace
+# ==========================================================
+remove_workspace() {
+    echo -e "\n=========================================================="
+    echo -e "🗑️ ${red}Menghapus Workspace${reset}"
+    echo -e "==========================================================\n"
+
     files=("$CONFIG_DIR"/*.json)
-    for i in "${!files[@]}"; do
-        fname=$(basename "${files[$i]}")
-        echo "$((i+1)). $fname"
+    [ ${#files[@]} -eq 0 ] && echo "⚠️ Tidak ada workspace untuk dihapus." && return
+
+    options=()
+    for f in "${files[@]}"; do
+        options+=("$(basename "$f" .json)")
     done
 
-    echo "Pilih workspace yang ingin dihapus (mis: 1 2 4):"
-    read -a del_choice
+    declare -a sel
+    select_multiple "Pilih workspace yang ingin dihapus:" options sel
 
-    for idx in "${del_choice[@]}"; do
-        json="${files[$((idx-1))]}"
-        [ -f "$json" ] || continue
-
-        name=$(jq -r .name "$json")
-        editor_dir=$(jq -r .editor "$json")
-
-        echo "Menghapus workspace '$name'..."
-        rm -rf "$editor_dir/$name"
-        rm -f "$json"
+    for i in "${!options[@]}"; do
+        if [[ ${sel[$i]} == true ]]; then
+            rm -f "$CONFIG_DIR/${options[$i]}.json"
+            echo -e "${red}🗑️ Workspace '${options[$i]}' dihapus.${reset}"
+        fi
     done
-
-    echo "Workspace terhapus."
 }
 
+# ==========================================================
+# Bantuan
+# ==========================================================
+show_help() {
+    echo -e "\n${yellow}Devmode CLI${reset} — Pengelola Workspace Termux untuk SPCK/Acode"
+    echo -e "${blue}Penggunaan:${reset}"
+    echo "  devmode set    → Menyimpan konfigurasi workspace"
+    echo "  devmode run    → Menyalin dan menjalankan sinkronisasi"
+    echo "  devmode rm     → Menghapus workspace"
+    echo "  devmode help   → Menampilkan bantuan"
+}
+
+# ==========================================================
+# Routing
+# ==========================================================
 case "$1" in
-    set-new-workspace|set) set_new_workspace ;;
+    set) set_workspace ;;
     run) run_workspace ;;
-    remove-workspace|rm|delete-workspace) delete_workspace ;;
-    *)
-        echo "Gunakan command devmode:
-  {set-new-workspace | run | delete-workspace}
-MENJALANKAN run..."
-        run_workspace
-        ;;
+    rm) remove_workspace ;;
+    help|"") show_help ;;
+    *) echo -e "${red}Perintah tidak dikenal. Gunakan 'devmode help'.${reset}" ;;
 esac
