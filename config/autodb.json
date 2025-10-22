@@ -1,9 +1,0 @@
-{
-  "name": "autodb",
-  "dir": "/data/data/com.termux/files/home/autodb.js",
-  "editor": "/sdcard/android/data/io.spck/files/",
-  "files": [
-    "package.json",
-    "src"
-  ]
-}
