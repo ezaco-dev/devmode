@@ -1,4 +1,4 @@
-![Banner]()
+![Banner](https://raw.githubusercontent.com/ezaco-dev/devmode/main/.github/image/BannerDevmode.png)
 
 # devmode 🛠️
 
@@ -126,5 +126,5 @@ MIT License
 
 <meta property="og:title" content="Devmode CLI - Workspace Manager">
 <meta property="og:description" content="Run local editor sync between Termux and SPCK/Acode with Symlink Filter.">
-<meta property="og:image" content="">
+<meta property="og:image" content="https://raw.githubusercontent.com/ezaco-dev/devmode/main/.github/image/BannerDevmode.png">
 <meta property="og:url" content="https://github.com/esalintang/devmode">
