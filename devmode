@@ -1,6 +1,6 @@
 #!/bin/bash
 # Devmode TUI (Esa Lintang 2025)
-# Versi: Runtime Sync (copy hanya saat run, auto cleanup di stop)
+# Version: Runtime Sync (copy only when running, auto cleanup on stop)
 
 CONFIG_DIR="$HOME/devmode/config"
 SPCK_DIR="/sdcard/android/data/io.spck/files"
@@ -8,12 +8,18 @@ SPCK_NODE_DIR="/sdcard/android/data/io.spck.editor.node/files"
 ACODE_DIR="/sdcard/acode"
 mkdir -p "$CONFIG_DIR"
 
-# Warna
-red='\e[31m'; green='\e[32m'; yellow='\e[33m'; blue='\e[34m'; white='\e[37m'; reset='\e[0m'
+# Colors
+red='\e[31m'; green='\e[32m'; bgreen='\e[1;32m'; yellow='\e[33m'; blue='\e[34m'; white='\e[37m'; b='\e[1;37m'; reset='\e[0m'
 
-# ==========================================================
-# Fungsi navigasi (multi select)
-# ==========================================================
+exec 3>&2 2>/dev/null
+
+box_header() {
+    local title="$1"
+    echo -e "${blue}┌───────────────────────────────────────────────┐${reset}"
+    printf "${blue}│${reset} ${yellow}%s${reset}\n" "$title"
+    echo -e "${blue}└───────────────────────────────────────────────┘${reset}\n"
+}
+
 select_multiple() {
     local title="$1"; shift
     local -n items=$1
@@ -23,16 +29,16 @@ select_multiple() {
 
     draw() {
         clear
-        echo -e "\n${blue}${title}${reset}\n"
-        echo -e "${white}Gunakan ↑ ↓ untuk navigasi, Spasi untuk pilih, Enter untuk lanjut.${reset}\n"
+        box_header "$title"
+        echo -e "${white}Use ↑ ↓ to navigate, Space to select, Enter to continue.${reset}\n"
         for i in "${!items[@]}"; do
             if [[ ${selected[$i]} == true ]]; then
-                mark="[${green}x${reset}]"
+                mark="${bgreen}✓${reset}"
             else
-                mark="[ ]"
+                mark="${b}•${reset}"
             fi
             if [[ $i -eq $index ]]; then
-                echo -e " > ${mark} ${yellow}${items[$i]}${reset}"
+                echo -e " ${b} → ${mark} ${yellow}${items[$i]}${reset}"
             else
                 echo -e "   ${mark} ${white}${items[$i]}${reset}"
             fi
@@ -41,7 +47,7 @@ select_multiple() {
 
     draw
     while true; do
-        IFS= read -rsn1 key
+        IFS= read -rsn1 key 2>/dev/null || true
         if [[ $key == $'\x1b' ]]; then
             read -rsn2 key
             case "$key" in
@@ -57,9 +63,6 @@ select_multiple() {
     done
 }
 
-# ==========================================================
-# Fungsi navigasi (single select)
-# ==========================================================
 select_one() {
     local title="$1"; shift
     local -n items=$1
@@ -69,11 +72,11 @@ select_one() {
 
     draw() {
         clear
-        echo -e "\n${blue}${title}${reset}\n"
-        echo -e "${white}Gunakan ↑ ↓ untuk navigasi, Enter untuk pilih.${reset}\n"
+        box_header "$title"
+        echo -e "${white}Use ↑ ↓ to navigate, Enter to select.${reset}\n"
         for i in "${!items[@]}"; do
             if [[ $i -eq $index ]]; then
-                echo -e " > ${yellow}${items[$i]}${reset}"
+                echo -e " ${b} → ${yellow}${items[$i]}${reset}"
             else
                 echo -e "   ${white}${items[$i]}${reset}"
             fi
@@ -82,7 +85,7 @@ select_one() {
 
     draw
     while true; do
-        IFS= read -rsn1 key
+        IFS= read -rsn1 key 2>/dev/null || true
         if [[ $key == $'\x1b' ]]; then
             read -rsn2 key
             case "$key" in
@@ -96,9 +99,6 @@ select_one() {
     done
 }
 
-# ==========================================================
-# Filter list (skip folder besar)
-# ==========================================================
 FILTER_LIST=(
   "node_modules"
   ".git"
@@ -125,19 +125,15 @@ create_filter_file() {
     echo "$f"
 }
 
-# ==========================================================
-# Membuat workspace (tanpa copy file)
-# ==========================================================
 set_workspace() {
-    echo -e "\n=========================================================="
-    echo -e "🛠️ ${yellow}Membuat Workspace Baru${reset}"
-    echo -e "==========================================================\n"
+    clear
+    box_header "🛠️ Create New Workspace"
 
-    echo -e "${blue}🔍 Scanning direktori saat ini...${reset}"
+    echo -e "${blue}🔍 Scanning current directory...${reset}"
     files=($(ls))
     declare -a selected_flags
 
-    select_multiple "📦 Pilih file/folder yang ingin disertakan:" files selected_flags
+    select_multiple "📦 Select files/folders to include" files selected_flags
 
     chosen_items=()
     for i in "${!files[@]}"; do
@@ -147,14 +143,14 @@ set_workspace() {
     done
 
     if [ ${#chosen_items[@]} -eq 0 ]; then
-        echo "⚠️ Tidak ada file yang dipilih."
+        echo -e "${red}⚠️  No files selected.${reset}"
         return
     fi
 
-    read -p "📝 Masukkan nama workspace: " name
+    read -p "📝 Enter workspace name: " name
 
     editors=("SPCK" "SPCK Node" "Acode")
-    select_one "🎨 Pilih editor untuk workspace ini:" editors chosen_editor
+    select_one "🎨 Choose editor for this workspace" editors chosen_editor
 
     case "$chosen_editor" in
         "SPCK") editor_dir="$SPCK_DIR" ;;
@@ -172,27 +168,23 @@ set_workspace() {
 }
 EOF
 
-    echo -e "${green}✅ Workspace '$name' tersimpan. Jalankan dengan:${reset}"
+    echo -e "${green}✅ Workspace '$name' saved. Run it with:${reset}"
     echo -e "   ${blue}devmode run${reset}"
 }
 
-# ==========================================================
-# Menjalankan workspace (copy saat run, auto cleanup)
-# ==========================================================
 run_workspace() {
-    echo -e "\n=========================================================="
-    echo -e "🚀 ${yellow}Menjalankan Workspace${reset}"
-    echo -e "==========================================================\n"
+    clear
+    box_header "🚀 Run Workspace"
 
     files=("$CONFIG_DIR"/*.json)
-    [ ${#files[@]} -eq 0 ] && echo "⚠️ Belum ada workspace tersimpan." && return
+    [ ${#files[@]} -eq 0 ] && echo -e "${red}⚠️  No workspace found.${reset}" && return
 
     options=()
     for f in "${files[@]}"; do
         options+=("$(basename "$f" .json)")
     done
 
-    select_one "📂 Pilih workspace yang ingin dijalankan:" options chosen
+    select_one "📂 Choose a workspace to run" options chosen
 
     CONFIG_PATH="$CONFIG_DIR/$chosen.json"
     workspace=$(jq -r '.path' "$CONFIG_PATH")
@@ -200,7 +192,7 @@ run_workspace() {
     name=$(jq -r '.name' "$CONFIG_PATH")
     target_dir="$editor_dir/$name"
 
-    echo -e "${green}📂 Sinkronisasi aktif: ${yellow}$chosen${reset}"
+    echo -e "${green}📂 Active Sync: ${yellow}$chosen${reset}"
     echo "Project : $workspace"
     echo "Editor  : $target_dir"
     sleep 1
@@ -208,20 +200,20 @@ run_workspace() {
     filter_file=$(create_filter_file)
     mkdir -p "$target_dir"
 
-    echo -e "\n${blue}📁 Menyalin file awal ke editor...${reset}"
+    echo -e "\n${blue}📁 Copying initial files to editor...${reset}"
     files_list=$(jq -r '.files[]' "$CONFIG_PATH")
     for item in $files_list; do
         if [ -e "$workspace/$item" ]; then
             rsync -rt --checksum --filter="merge $filter_file" "$workspace/$item" "$target_dir/"
         fi
     done
-    echo -e "${green}✅ Copy selesai. Sinkronisasi berjalan setiap 1 detik...${reset}"
+    echo -e "${green}✅ Copy complete. Syncing every 1 second...${reset}"
 
     cleanup() {
-        echo -e "\n🛑 Menutup sinkronisasi dan menghapus folder editor..."
+        echo -e "\n🧹 Stopping sync and cleaning up editor folder..."
         rm -rf "$target_dir"
         rm -f "$filter_file"
-        echo -e "${yellow}✅ Workspace '$chosen' ditutup.${reset}"
+        echo -e "${yellow}✅ Workspace '$chosen' closed.${reset}"
         exit 0
     }
     trap cleanup INT
@@ -232,16 +224,12 @@ run_workspace() {
     done
 }
 
-# ==========================================================
-# Menghapus workspace
-# ==========================================================
 remove_workspace() {
-    echo -e "\n=========================================================="
-    echo -e "🗑️ ${red}Menghapus Workspace${reset}"
-    echo -e "==========================================================\n"
+    clear
+    box_header "🗑️ Remove Workspace"
 
     files=("$CONFIG_DIR"/*.json)
-    [ ${#files[@]} -eq 0 ] && echo "⚠️ Tidak ada workspace untuk dihapus." && return
+    [ ${#files[@]} -eq 0 ] && echo -e "${red}⚠️  No workspace to remove.${reset}" && return
 
     options=()
     for f in "${files[@]}"; do
@@ -249,35 +237,29 @@ remove_workspace() {
     done
 
     declare -a sel
-    select_multiple "Pilih workspace yang ingin dihapus:" options sel
+    select_multiple "Select workspace(s) to delete" options sel
 
     for i in "${!options[@]}"; do
         if [[ ${sel[$i]} == true ]]; then
             rm -f "$CONFIG_DIR/${options[$i]}.json"
-            echo -e "${red}🗑️ Workspace '${options[$i]}' dihapus.${reset}"
+            echo -e "${red}🗑️  Workspace '${options[$i]}' removed.${reset}"
         fi
     done
 }
 
-# ==========================================================
-# Bantuan
-# ==========================================================
 show_help() {
-    echo -e "\n${yellow}Devmode CLI${reset} — Pengelola Workspace Termux untuk SPCK/Acode"
-    echo -e "${blue}Penggunaan:${reset}"
-    echo "  devmode set    → Menyimpan konfigurasi workspace"
-    echo "  devmode run    → Menyalin dan menjalankan sinkronisasi"
-    echo "  devmode rm     → Menghapus workspace"
-    echo "  devmode help   → Menampilkan bantuan"
+    box_header "📘 Devmode CLI Help"
+    echo -e "${blue}Usage:${reset}"
+    echo "  devmode set    → Save a new workspace configuration"
+    echo "  devmode run    → Copy and start real-time sync"
+    echo "  devmode rm     → Delete saved workspace(s)"
+    echo "  devmode help   → Show this help menu"
 }
 
-# ==========================================================
-# Routing
-# ==========================================================
 case "$1" in
-    set) set_workspace ;;
-    run) run_workspace ;;
-    rm) remove_workspace ;;
+    create-new-workspace|set) set_workspace ;;
+    start-workspace|run) run_workspace ;;
+    remove-workspace|rm) remove_workspace ;;
     help|"") show_help ;;
-    *) echo -e "${red}Perintah tidak dikenal. Gunakan 'devmode help'.${reset}" ;;
+    *) echo -e "${red}Unknown command. Use 'devmode help'.${reset}" ;;
 esac

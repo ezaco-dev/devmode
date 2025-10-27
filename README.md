@@ -1,32 +1,34 @@
+<img src="https://github.com/ezaco-dev/ezaco-dev/blob/main/banner%20github%20devmode%20%5BFB7B0EC%5D.png"> 
+
 # devmode 🛠️
 
 ---
 
-## 🎯 About  
+## 🎯 About
 `devmode` is a shell script that simplifies managing local coding workspaces on Android or Linux devices. With devmode, you can create a workspace by selecting specific files and folders, run the workspace using popular editors (SPCK, SPCK Node.js, Acode), and automatically sync changes between your workspace and the original directory.
 
 ---
 
-## ⚡ Features  
+## ⚡ Features
 
 
 
-- 📂 Create a workspace by selecting files/folders from the current directory  
-- 🖥️ Choose your default editor: SPCK, SPCK Node.js, or Acode  
-- 🔄 Automatic file synchronization between the workspace and original directory using `rsync`  
-- 🗑️ Easily delete workspaces along with synced files in the editor folder  
-- 🚫 Automatically filter out unnecessary files/folders like `node_modules`, `.git`, and log files  
+- 📂 Create a workspace by selecting files/folders from the current directory
+- 🖥️ Choose your default editor: SPCK, SPCK Node.js, or Acode
+- 🔄 Automatic file synchronization between the workspace and original directory using `rsync`
+- 🗑️ Easily delete workspaces along with synced files in the editor folder
+- 🚫 Automatically filter out unnecessary files/folders like `node_modules`, `.git`, and log files
 - 🛡️ Protect config files and build artifacts from being synced
 
 ---
 
-## 🚀 Installation  
+## 🚀 Installation
 
-### Android application required 
+### Android application required
 - #### Text editor (<a href="https://play.google.com/store/apps/details?id=io.spck">Spck Editor</a>, <a href="https://play.google.com/store/apps/details?id=io.spck.editor.node">Spck Editor for Nodejs</a>, <a href="https://play.google.com/store/apps/details?id=com.foxdebug.acodefree">Acode</a>)
 - #### Command Line <a href="https://f-droid.org/id/packages/com.termux/">Termux</a>
 
-### 1. Setup Termux 
+### 1. Setup Termux
 ```bash
 pkg update && pkg upgrade
 pkg install git rsync jq
@@ -41,26 +43,34 @@ mkdir config
 
 ### 3. Give file permission
 ```bash
-chmod +x devmode.sh
+chmod +x devmode
 ```
 
 ### 4. Create a shortcut
 ```bash
-export DEVMODE_ALIAS="alias devmode='~/devmode/devmode.sh'"
+export DEVMODE_ALIAS="alias devmode='~/devmode/devmode'"
 [ -n "$PS1" ] && eval "$DEVMODE_ALIAS"
 [ -n "$ZSH_VERSION" ] && source ~/.zshrc || ([ -n "$BASH_VERSION" ] && source ~/.bashrc || [ -f ~/.profile ] && source ~/.profile)
 ```
 ---
 ## 🗨️ Command List
-### 1. Creating workspace 
+### 1. help
 ```bash
-devmode set-new-workspace 
+devmode help
+```
+```bash
+devmode
+```
+
+### 2. Creating workspace
+```bash
+devmode create-new-workspace
 ```
 ```bash
 devmode set
 ```
 
-### 2. Remove workspaces
+### 3. Remove workspaces
 ```bash
 devmode remove-workspace
 ```
@@ -68,12 +78,12 @@ devmode remove-workspace
 devmode rm
 ```
 
-### 3. Run the program
+### 4. Run the program
 ```bash
-devmode run
+devmode start-workspace
 ```
 ```bash
-devmode
+devmode run
 ```
 ---
 
