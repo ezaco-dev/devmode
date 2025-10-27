@@ -1,7 +1,3 @@
-<meta property="og:title" content="Devmode CLI - Workspace Manager"
-<meta property="og:description" content="Run local editor sync betw
-<meta property="og:image" content="https://raw.githubusercontent.co
-<meta property="og:url" content="https://github.com/esalintang/devm
 
 
 ![Banner](https://raw.githubusercontent.com/ezaco-dev/devmode/main/.github/image/BannerDevmode.png)
